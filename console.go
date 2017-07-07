@@ -20,7 +20,7 @@ func (r *Router) startConsole(host string, port int) {
 
 	server := http.Server{
 		Addr: host + ":" + portS,
-		Handler: &ConsoleHandler{
+		Handler: &consoleHandler{
 			router: r,
 		},
 	}
@@ -49,11 +49,11 @@ func readFile(name string) ([]byte, error) {
 	return bytes, nil
 }
 
-type ConsoleHandler struct {
+type consoleHandler struct {
 	router *Router
 }
 
-func (ch *ConsoleHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (ch *consoleHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	if strings.HasPrefix(path, "/pre") {
@@ -92,6 +92,7 @@ func (ch *ConsoleHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	rw.Write(page)
 }
 
+// FilterItem is exported for JSON
 type FilterItem struct {
 	Name        string `json:"name"`
 	Order       int    `json:"order"`

@@ -1,6 +1,7 @@
 // Copyright Piero de Salvia.
 // All Rights Reserved
 
+// Package dynaroutes is a dynamic reverse proxy with rules defined in scripted plugins
 package dynaroutes
 
 import (
@@ -17,6 +18,9 @@ import (
 	"github.com/pierods/pluginator"
 )
 
+/*
+NewRouterF creates an instance of Router watching directory for filters.
+*/
 func NewRouterF(interfaceName string, port uint, readTimeout, writeTimeout time.Duration, pluginDir string, consoleHost string, consolePort uint) (*Router, error) {
 
 	router, err := newRouter(interfaceName, port, readTimeout, writeTimeout)
@@ -28,10 +32,10 @@ func NewRouterF(interfaceName string, port uint, readTimeout, writeTimeout time.
 	if err != nil {
 		return nil, err
 	}
-	pluginator.SubscribeScan(router.ScanSubscriber)
-	pluginator.SubscribeUpdate(router.UpdateSubscriber)
-	pluginator.SubscribeAdd(router.AddSubscriber)
-	pluginator.SubscribeRemove(router.RemoveSubscriber)
+	pluginator.SubscribeScan(router.scanSubscriber)
+	pluginator.SubscribeUpdate(router.updateSubscriber)
+	pluginator.SubscribeAdd(router.addSubscriber)
+	pluginator.SubscribeRemove(router.removeSubscriber)
 
 	router.pluginator = pluginator
 
@@ -40,6 +44,9 @@ func NewRouterF(interfaceName string, port uint, readTimeout, writeTimeout time.
 	return router, nil
 }
 
+/*
+NewRouterC creates an instance of Router watching a consul key for filters.
+*/
 func NewRouterC(interfaceName string, port uint, readTimeout, writeTimeout time.Duration, consulHost string, consulPort uint, consulPrefix string, consoleHost string, consolePort uint) (*Router, error) {
 
 	router, err := newRouter(interfaceName, port, readTimeout, writeTimeout)
@@ -51,10 +58,10 @@ func NewRouterC(interfaceName string, port uint, readTimeout, writeTimeout time.
 	if err != nil {
 		return nil, err
 	}
-	pluginator.SubscribeScan(router.ScanSubscriber)
-	pluginator.SubscribeUpdate(router.UpdateSubscriber)
-	pluginator.SubscribeAdd(router.AddSubscriber)
-	pluginator.SubscribeRemove(router.RemoveSubscriber)
+	pluginator.SubscribeScan(router.scanSubscriber)
+	pluginator.SubscribeUpdate(router.updateSubscriber)
+	pluginator.SubscribeAdd(router.addSubscriber)
+	pluginator.SubscribeRemove(router.removeSubscriber)
 
 	router.pluginator = pluginator
 
@@ -71,7 +78,7 @@ func newRouter(interfaceName string, port uint, readTimeout, writeTimeout time.D
 
 	server := http.Server{
 		Addr: interfaceName + ":" + portS,
-		Handler: &MainHandler{
+		Handler: &mainHandler{
 			router: &router,
 		},
 		ReadTimeout: readTimeout,
@@ -86,6 +93,9 @@ func newRouter(interfaceName string, port uint, readTimeout, writeTimeout time.D
 	return &router, nil
 }
 
+/*
+Start makes Router start watching a directory/consul key for plugins.
+*/
 func (r *Router) Start() {
 	r.pluginator.Start()
 	log.Println("Router listening on " + r.server.Addr)
@@ -93,23 +103,26 @@ func (r *Router) Start() {
 	log.Println(err)
 }
 
+/*
+Shutdown shuts down the Router
+*/
 func (r *Router) Shutdown() {
 	r.pluginator.Terminate()
 	r.server.Shutdown(context.TODO())
 }
 
-func (r *Router) AddSubscriber(fileName string, pluginLib *pluginator.PluginContent) {
+func (r *Router) addSubscriber(fileName string, pluginLib *pluginator.PluginContent) {
 	r.handlePluginLib(fileName, pluginLib)
 }
 
-func (r *Router) ScanSubscriber(pluginNamesAndLibs map[string]*pluginator.PluginContent) {
+func (r *Router) scanSubscriber(pluginNamesAndLibs map[string]*pluginator.PluginContent) {
 
 	for fileName, pluginLib := range pluginNamesAndLibs {
 		r.handlePluginLib(fileName, pluginLib)
 	}
 }
 
-func (r *Router) RemoveSubscriber(fileName string, pluginLib *pluginator.PluginContent) {
+func (r *Router) removeSubscriber(fileName string, pluginLib *pluginator.PluginContent) {
 	preFilterLib, err := pluginLib.Lib.Lookup("PreFilter")
 	if err == nil {
 		preFilterPtr, isInstanceOf := preFilterLib.(*PreFilter)
@@ -131,7 +144,7 @@ func (r *Router) RemoveSubscriber(fileName string, pluginLib *pluginator.PluginC
 				r.preFilters = r.preFilters[:len(r.preFilters)-1]
 
 			}
-			sort.Sort(PreFilterByOrder(r.preFilters))
+			sort.Sort(preFilterByOrder(r.preFilters))
 		} else {
 			log.Println("file ", fileName, " contains a PreFilter that does not implement dynaroutes.PostFilter")
 		}
@@ -156,14 +169,14 @@ func (r *Router) RemoveSubscriber(fileName string, pluginLib *pluginator.PluginC
 				r.postFilters[len(r.postFilters)-1] = nil
 				r.postFilters = r.postFilters[:len(r.postFilters)-1]
 			}
-			sort.Sort(PostFilterByOrder(r.postFilters))
+			sort.Sort(postFilterByOrder(r.postFilters))
 		} else {
 			log.Println("file ", fileName, " contains a PostFilter that does not implement dynaroutes.PostFilter")
 		}
 	}
 }
 
-func (r *Router) UpdateSubscriber(fileName string, pluginLib *pluginator.PluginContent) {
+func (r *Router) updateSubscriber(fileName string, pluginLib *pluginator.PluginContent) {
 
 	r.handlePluginLib(fileName, pluginLib)
 }
@@ -191,7 +204,7 @@ func (r *Router) handlePluginLib(fileName string, pluginLib *pluginator.PluginCo
 				r.preFilters = append(r.preFilters, preFilter)
 				log.Println("Added pre filter ", preFilter.Name())
 			}
-			sort.Sort(PreFilterByOrder(r.preFilters))
+			sort.Sort(preFilterByOrder(r.preFilters))
 			r.prefilterCode[preFilter.Name()] = pluginLib.Code
 		} else {
 			log.Println("file ", fileName, " contains a PreFilter that does not implement dynaroutes.PostFilter")
@@ -218,7 +231,7 @@ func (r *Router) handlePluginLib(fileName string, pluginLib *pluginator.PluginCo
 				r.postFilters = append(r.postFilters, postFilter)
 				log.Println("Added post filter ", postFilter.Name())
 			}
-			sort.Sort(PostFilterByOrder(r.postFilters))
+			sort.Sort(postFilterByOrder(r.postFilters))
 			r.postFilterCode[postFilter.Name()] = pluginLib.Code
 		} else {
 			log.Println("file ", fileName, " contains a PostFilter that does not implement dynaroutes.PostFilter")
@@ -226,29 +239,29 @@ func (r *Router) handlePluginLib(fileName string, pluginLib *pluginator.PluginCo
 	}
 }
 
-type PreFilterByOrder []PreFilter
+type preFilterByOrder []PreFilter
 
-func (a PreFilterByOrder) Len() int           { return len(a) }
-func (a PreFilterByOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a PreFilterByOrder) Less(i, j int) bool { return a[i].Order() < a[j].Order() }
+func (a preFilterByOrder) Len() int           { return len(a) }
+func (a preFilterByOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a preFilterByOrder) Less(i, j int) bool { return a[i].Order() < a[j].Order() }
 
-type PostFilterByOrder []PostFilter
+type postFilterByOrder []PostFilter
 
-func (a PostFilterByOrder) Len() int           { return len(a) }
-func (a PostFilterByOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a PostFilterByOrder) Less(i, j int) bool { return a[i].Order() < a[j].Order() }
+func (a postFilterByOrder) Len() int           { return len(a) }
+func (a postFilterByOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a postFilterByOrder) Less(i, j int) bool { return a[i].Order() < a[j].Order() }
 
-type MainHandler struct {
+type mainHandler struct {
 	router *Router
 }
 
-func (m *MainHandler) handleFilterError(responseWriter http.ResponseWriter, request *http.Request, err error) {
+func (m *mainHandler) handleFilterError(responseWriter http.ResponseWriter, request *http.Request, err error) {
 	responseWriter.Header().Set("Content/Type", "text/html")
 	responseWriter.WriteHeader(500)
 	responseWriter.Write([]byte(err.Error()))
 }
 
-func (m *MainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 
 	var route *Route
 	var err error
@@ -328,7 +341,7 @@ func (m *MainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 	}
 }
 
-func (m *MainHandler) copyHeader(dst, src http.Header) {
+func (m *mainHandler) copyHeader(dst, src http.Header) {
 	for k, vv := range src {
 		for _, v := range vv {
 			dst.Add(k, v)
@@ -336,7 +349,7 @@ func (m *MainHandler) copyHeader(dst, src http.Header) {
 	}
 }
 
-func (m *MainHandler) cloneHeader(h http.Header) http.Header {
+func (m *mainHandler) cloneHeader(h http.Header) http.Header {
 	h2 := make(http.Header, len(h))
 	for k, vv := range h {
 		vv2 := make([]string, len(vv))
