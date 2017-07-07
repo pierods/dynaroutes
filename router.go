@@ -264,7 +264,7 @@ func (m *MainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 	}
 	if route != nil {
 		portS := strconv.Itoa(route.Port)
-		proxyURL, err := url.Parse(route.Scheme + "://" + route.Host + ":" + portS + route.Uri)
+		proxyURL, err := url.Parse(route.Scheme + "://" + route.Host + ":" + portS + route.URI)
 		if err != nil {
 			responseWriter.Header().Set("Content/Type", "text/html")
 			responseWriter.WriteHeader(500)
