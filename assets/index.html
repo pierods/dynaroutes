@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+  <style>
+    table {
+
+      border-collapse: collapse;
+      width: 90%;
+    }
+
+    table,
+    th,
+    td {
+      border: 1px solid blue;
+    }
+  </style>
+</head>
+
+<body>
+  <span style="font-family: 'Inconsolata', monospace;color:blue;"><h1>dynaroutes</h1></span>
+  <div id="panel" style="position: relative; left: 30px;font-family: 'Inconsolata', monospace;background-color: #0;">
+    <h3> pre filters</h3>
+    <div id="preTableHolder" style="margin-left: 20px;"></div>
+    <h3> post filters</h3>
+    <div id="postTableHolder" style="margin-left: 20px;"></div>
+  </div>
+  <script>
+    preTableSrc =
+      `
+    <table id="prestable">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Code</th>
+        </tr>
+        <tbody>
+        </tbody>
+      </thead>
+    </table>
+    `
+
+    postTableSrc =
+      `
+    <table id="poststable">
+      <thead>
+        <tr>
+        <th>Order</th>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Code</th>
+        </tr>
+        <tbody>
+        </tbody>
+      </thead>
+    </table>
+    `
+
+    function getPres() {
+      tableHolderDiv = document.getElementById("preTableHolder")
+      tableHolderDiv.innerHTML = preTableSrc
+      var table = document.getElementById("prestable").tBodies.item(0);
+      var filterRequest = new XMLHttpRequest();
+      filterRequest.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+          var filters = JSON.parse(filterRequest.responseText);
+          filters.forEach(function(filter) {
+            var row = table.insertRow(-1);
+            var orderCell = row.insertCell(-1);
+            orderCell.style.textAlign = "center"
+            orderCell.innerHTML = filter.order
+            var nameCell = row.insertCell(-1);
+            nameCell.innerHTML = filter.name
+            var descriptionCell = row.insertCell(-1)
+            descriptionCell.innerHTML = filter.description
+            var codeCell = row.insertCell(-1)
+            codeCell.innerHTML = "<a href='#'>code</a>"
+            codeCell.linkDiv = "<a href='#'>code</a>"
+            codeCell.codeShown = false
+            codeCell.codeDiv = "<a href='#'>code</a>" + "<div><pre>" + filter.code + "</pre></div>"
+            codeCell.onclick = function() {
+              if (this.codeShown) {
+                this.innerHTML = this.linkDiv
+                this.codeShown = false
+                intervalPre = setInterval(getPres, 3000)
+                intervalPost = setInterval(getPosts, 3000)
+              } else {
+                this.innerHTML = this.codeDiv
+                this.codeShown = true
+                clearInterval(intervalPre)
+                clearInterval(intervalPost)
+              }
+            }
+          })
+        }
+      }
+      filterRequest.open("GET", "http://localhost:30000/pres", true);
+      filterRequest.send();
+    }
+
+    function getPosts() {
+      tableHolderDiv = document.getElementById("postTableHolder")
+      tableHolderDiv.innerHTML = postTableSrc
+      var table = document.getElementById("poststable");
+      var filterRequest = new XMLHttpRequest();
+      filterRequest.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+          var filters = JSON.parse(filterRequest.responseText);
+          filters.forEach(function(filter) {
+            var row = table.insertRow(-1);
+            var orderCell = row.insertCell(-1);
+            orderCell.style.textAlign = "center"
+            orderCell.innerHTML = filter.order
+            var nameCell = row.insertCell(-1);
+            nameCell.innerHTML = filter.name
+            var descriptionCell = row.insertCell(-1)
+            descriptionCell.innerHTML = filter.description
+            var codeCell = row.insertCell(-1)
+            firstLineOfCode = filter.code.split("\n")[0]
+            codeCell.innerHTML = "<a href='#'>code</a>"
+            codeCell.linkDiv = "<a href='#'>code</a>"
+            codeCell.codeShown = false
+            codeCell.codeDiv = "<a href='#'>code</a>" + "<div><pre>" + filter.code + "</pre></div>"
+            codeCell.onclick = function() {
+              if (this.codeShown) {
+                this.innerHTML = this.linkDiv
+                this.codeShown = false
+                intervalPre = setInterval(getPres, 3000)
+                intervalPost = setInterval(getPosts, 3000)
+              } else {
+                this.innerHTML = this.codeDiv
+                this.codeShown = true
+                clearInterval(intervalPre)
+                clearInterval(intervalPost)
+              }
+            }
+          })
+        }
+      }
+      filterRequest.open("GET", "http://localhost:30000/post", true);
+      filterRequest.send();
+    }
+    getPres()
+    intervalPre = setInterval(getPres, 3000);
+    getPosts()
+    intervalPost = setInterval(getPosts, 3000);
+  </script>
+</body>
+
+</html>
