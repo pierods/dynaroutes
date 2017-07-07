@@ -13,7 +13,7 @@ func (srf *EchoRoutePreFilter) Filter(request *http.Request) (*dynaroutes.Route,
 	return &dynaroutes.Route{
 		Scheme: "http",
 		Host:   "localhost",
-		Uri:    request.URL.String(),
+		URI:    request.URL.String(),
 		Port:   50000,
 		Method: request.Method,
 	}, nil

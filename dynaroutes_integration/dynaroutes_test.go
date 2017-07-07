@@ -4,7 +4,7 @@
 /*
 moved test to this package because of https://github.com/golang/go/issues/17928
 */
-package dynaroutes_test
+package dynaroutes_integration
 
 import (
 	"bytes"
