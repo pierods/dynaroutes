@@ -1,3 +1,6 @@
+// Copyright Piero de Salvia.
+// All Rights Reserved
+
 /*
 moved test to this package because of https://github.com/golang/go/issues/17928
 */
@@ -114,7 +117,7 @@ func TestMain(m *testing.M) {
 
 	defer server.Close()
 
-	router, err := dynaroutes.NewRouterF("localhost", 30000, 5*time.Second, 5*time.Second, testDataDir)
+	router, err := dynaroutes.NewRouterF("localhost", 30000, 5*time.Second, 5*time.Second, testDataDir, "localhost", 31000)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
