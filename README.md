@@ -249,7 +249,7 @@ get and install dynaroutes:
     go install
    
 ```
-Make sure there is a go tooolchain on the host machine  - basically, untar a go distro and put its bin folder in the PATH. 
+Make sure there is a go tooolchain on the host machine (the machine that will run the router) - basically, untar a go distro and put its bin folder in the PATH. 
 Instructions [here](https://golang.org/doc/install?download=go1.8.3.linux-amd64.tar.gz).
 
 ## Notes
