@@ -3,6 +3,8 @@
 
 package dynaroutes
 
+//go:generate  embed -package dynaroutes -var indexHtml -asset assets/index.html > Assets.go
+
 import (
 	"encoding/json"
 	"fmt"
@@ -83,13 +85,16 @@ func (ch *consoleHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if path == "/" {
 		path = "/index.html"
 	}
-	page, err := readFile(path)
 	rw.Header().Set("Content/Type", "text/html")
-	if err != nil {
-		rw.WriteHeader(404)
-		fmt.Fprint(rw, err)
-	}
-	rw.Write(page)
+	/*
+		page, err := readFile(path)
+		if err != nil {
+			rw.WriteHeader(404)
+			fmt.Fprint(rw, err)
+		}
+		rw.Write(page)
+	*/
+	rw.Write(indexHtml)
 }
 
 // FilterItem is exported for JSON
