@@ -14,17 +14,15 @@ func (spf *SimplePostFilter) Filter(request, proxyRequest *http.Request, proxyRe
 
 	log.Print("post filter: original request:", request.URL.String())
 	log.Println(" was forwarded to:", proxyRequest.URL.String())
-
+	log.Println(request.Context().Value("filterkey"))
 	respB, err := ioutil.ReadAll(proxyResponse.Body)
 	if err != nil {
 		return nil, err
 	}
 
 	return append(respB, []byte(" - filtered")...), nil
-
-	return nil, nil
-
 }
+
 func (spf *SimplePostFilter) Order() int {
 	return 10
 }
