@@ -122,12 +122,10 @@ func TestMain(m *testing.M) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	go func() {
-		router.Start()
-	}()
+	go router.Start()
 
 	defer router.Shutdown()
-	time.Sleep(40 * time.Second)
+	time.Sleep(50 * time.Second)
 	retCode := m.Run()
 	os.Exit(retCode)
 
