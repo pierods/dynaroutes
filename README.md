@@ -280,7 +280,7 @@ SimpleHostRoutingFilter.groovy has 435 lines of scripted code - not ideal from a
 route filter should reimplement a router, and what is the advantage of doing so. dynaroutes does the routing after pre filters have run.
 
 One benefit of having route filters is that there can be many of them, and multiple routing can be done. While this can be still done without writing 
-multiple reverse proxies (a route filter could simply be handled the response of the last call and return another route or not) it is still debatable
+multiple reverse proxies (a route filter could simply be handed the response of the last call and return another route or not) it is still debatable
 whether a dynamic reverse proxy should also act as an API gateway, and instead route to a special purpose API gateway instead. Should such demand arise,
 this functionality could be implemented.
 
