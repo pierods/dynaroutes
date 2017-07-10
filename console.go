@@ -3,7 +3,7 @@
 
 package dynaroutes
 
-//go:generate  embed -package dynaroutes -var indexHtml -asset assets/index.html > Assets.go
+//go:generate  embed -package dynaroutes -var indexHtml -asset assets/index.html -o Assets.go
 
 import (
 	"encoding/json"
