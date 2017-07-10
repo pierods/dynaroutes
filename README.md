@@ -1,11 +1,10 @@
-# dynaroutes - a reverse proxy for dynamic routing, with scripted Go
-
+# ![logo](assets/logo.png) 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![](https://godoc.org/github.com/pierods/dynaroutes?status.svg)](http://godoc.org/github.com/pierods/dynaroutes)
 [![Go Report Card](https://goreportcard.com/badge/github.com/pierods/dynaroutes)](https://goreportcard.com/report/github.com/pierods/dynaroutes)
 [![Build Status](https://travis-ci.org/pierods/dynaroutes.svg?branch=master)](https://travis-ci.org/pierods/dynaroutes)
 
-dynaroutes is a reverse proxy, inspired by [Zuul](https://github.com/Netflix/zuul). It features:
+dynaroutes is a reverse proxy for dynamic routing with scripted Go, inspired by [Zuul](https://github.com/Netflix/zuul). It features:
 
 + dynamic filters - written in Go and compiled on the fly. 
 + directory-based or consul-based filter loading/unloading/editing
@@ -23,6 +22,8 @@ dynaroutes is useful for:
 
 
 ## What is a filter
+
+![router](assets/dynaroutes.png)
 
 A filter is a small program that is applied either at the moment when a request comes into the reverse proxy ("pre filters") or after 
 a proxy request has returned ("post filters") - but before the final response is sent out.
