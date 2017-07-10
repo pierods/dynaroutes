@@ -49,6 +49,6 @@ type PreFilter interface {
 //PostFilter is applied before a response is sent back to the client. Many post filter can be defined, and they are applied in the order defined by Order(), however as soon as a non-nil []byte is returned, the router stops applying post filters.
 type PostFilter interface {
 	filterBase
-	//Filter can return nil, or a *bytes.Buffer, in which case that's what will be sent back to the client
+	//Filter can return nil, or a []byte, in which case that's what will be sent back to the client
 	Filter(request, proxyRequest *http.Request, proxyResponse *http.Response) ([]byte, error)
 }
