@@ -125,7 +125,7 @@ func TestMain(m *testing.M) {
 	go router.Start()
 
 	defer router.Shutdown()
-	time.Sleep(50 * time.Second)
+	time.Sleep(60 * time.Second)
 	retCode := m.Run()
 	os.Exit(retCode)
 
