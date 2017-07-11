@@ -62,5 +62,8 @@ func main() {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
-	router.Start()
+	err = router.Start()
+	if err != nil {
+		errF(err.Error())
+	}
 }

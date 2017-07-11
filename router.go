@@ -96,11 +96,16 @@ func newRouter(interfaceName string, port uint, readTimeout, writeTimeout time.D
 /*
 Start makes Router start watching a directory/consul key for plugins.
 */
-func (r *Router) Start() {
-	r.pluginator.Start()
+func (r *Router) Start() error {
+	err := r.pluginator.Start()
+	if err != nil {
+		return err
+	}
 	log.Println("Router listening on " + r.server.Addr)
-	err := r.server.ListenAndServe()
+	err = r.server.ListenAndServe()
 	log.Println(err)
+
+	return nil
 }
 
 /*
@@ -258,7 +263,10 @@ type mainHandler struct {
 func (m *mainHandler) handleFilterError(responseWriter http.ResponseWriter, request *http.Request, err error) {
 	responseWriter.Header().Set("Content/Type", "text/html")
 	responseWriter.WriteHeader(500)
-	responseWriter.Write([]byte(err.Error()))
+	_, err = responseWriter.Write([]byte(err.Error()))
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
@@ -281,7 +289,10 @@ func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 		if err != nil {
 			responseWriter.Header().Set("Content/Type", "text/html")
 			responseWriter.WriteHeader(500)
-			responseWriter.Write([]byte(err.Error()))
+			_, err = responseWriter.Write([]byte(err.Error()))
+			if err != nil {
+				log.Println(err)
+			}
 			return
 		}
 		proxyReq := new(http.Request)
@@ -308,7 +319,10 @@ func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 		if err != nil {
 			responseWriter.Header().Set("Content/Type", "text/html")
 			responseWriter.WriteHeader(500)
-			responseWriter.Write([]byte(err.Error()))
+			_, err = responseWriter.Write([]byte(err.Error()))
+			if err != nil {
+				log.Println(err)
+			}
 			return
 		}
 		defer proxyResp.Body.Close()
@@ -327,16 +341,24 @@ func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 		m.copyHeader(responseWriter.Header(), proxyResp.Header)
 		if filteredBody != nil {
 			responseWriter.Header().Set("Content-Length", strconv.Itoa(len(filteredBody)))
-			io.Copy(responseWriter, bytes.NewReader(filteredBody))
+			_, err = io.Copy(responseWriter, bytes.NewReader(filteredBody))
+			if err != nil {
+				log.Println(err)
+			}
 			return
 		}
 		responseWriter.WriteHeader(proxyResp.StatusCode)
-		io.Copy(responseWriter, proxyResp.Body)
-
+		_, err = io.Copy(responseWriter, proxyResp.Body)
+		if err != nil {
+			log.Println(err)
+		}
 	} else {
 		responseWriter.Header().Set("Content/Type", "text/html")
 		responseWriter.WriteHeader(404)
-		responseWriter.Write([]byte("Not Found"))
+		_, err = responseWriter.Write([]byte("Not Found"))
+		if err != nil {
+			log.Println(err)
+		}
 		return
 	}
 }
