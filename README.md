@@ -230,7 +230,6 @@ Compile and build dynaroutes: get and install [pluginator](github.com/pierods/pl
 ```bash
 
     go get github.com/hashicorp/consul/api
-    go get github.com/google/uuid
     go get github.com/fsnotify/fsnotify
     go get github.com/pierods/pluginator
     
