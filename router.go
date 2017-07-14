@@ -1,7 +1,6 @@
 // Copyright Piero de Salvia.
 // All Rights Reserved
 
-// Package dynaroutes is a dynamic reverse proxy with rules defined in scripted plugins
 package dynaroutes
 
 import (
