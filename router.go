@@ -316,7 +316,11 @@ func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 	resultChan := make(chan *ResultMsg, 1)
 
 	for _, rFilter := range m.router.routingFilters {
-		routeTasks = rFilter.Routes(request, resultChan)
+		routeTasks, err = rFilter.Filter(request, resultChan)
+		if err != nil {
+			m.handleFilterError(responseWriter, request, err)
+			return
+		}
 		if routeTasks != nil {
 			break
 		}
@@ -374,7 +378,10 @@ func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 	}
 }
 
-func (m *mainHandler) doProxyRequest(request *http.Request, route *Route, receive chan<- ResultMsg) {
+/*
+the request parameter also carries the context
+*/
+func (m *mainHandler) doProxyRequest(request *http.Request, route *Route, receive chan<- *ResultMsg) {
 
 	portS := strconv.Itoa(route.Port)
 	proxyURL, err := url.Parse(route.Scheme + "://" + route.Host + ":" + portS + route.URI)
@@ -383,7 +390,7 @@ func (m *mainHandler) doProxyRequest(request *http.Request, route *Route, receiv
 			Response: nil,
 			Err:      err,
 		}
-		receive <- rM
+		receive <- &rM
 		return
 	}
 
@@ -413,7 +420,7 @@ func (m *mainHandler) doProxyRequest(request *http.Request, route *Route, receiv
 			Response: nil,
 			Err:      err,
 		}
-		receive <- rM
+		receive <- &rM
 
 		proxyResp.Body.Close()
 		cancel()

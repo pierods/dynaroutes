@@ -37,6 +37,21 @@ type Route struct {
 	Body    io.ReadCloser
 }
 
+// ResultMsg is the result of an http call. or an error
+type ResultMsg struct {
+	Response *http.Response
+	Err      error
+}
+
+// RouteTasks has two channels, one for sending a Route to be proxies, one for receiving the result of the routing
+type RouteTasks struct {
+	// this notifies the router that filter is ready to have a request sent out. Channel is necessary because if a routing filter decides
+	//to compose, it might need the result(s) of a previous proxying to issue the next proxying request
+	Send    <-chan *Route
+	Receive chan<- *ResultMsg
+}
+
+// FilterBase has the base methods for filters
 type FilterBase interface {
 	Name() string
 	Order() int
@@ -50,33 +65,24 @@ type PreFilter interface {
 	Filter(request *http.Request) error
 }
 
-type ResultMsg struct {
-	Response *http.Response
-	Err      error
-}
-
-type RouteTasks struct {
-	// this notifies the router that filter is ready to have a request sent out. Channel is necessary because if a routing filter decides
-	//to compose, it might need the result(s) of a previous proxying to issue the next proxying request
-	Send    <-chan *Route
-	Receive chan<- ResultMsg
-}
-
 /*
-RouteFilter is the filter type for routing
+RoutingFilter is the filter type for routing
 */
 type RoutingFilter interface {
 	FilterBase
 	/*
 		Routes returns a *RouteTask, or nil if it decides not to handle the request. When the code is ready to send
-		the final result to the router, it should push it into endResult.
+		the final result to the router, it should push it into endResult. Notice that  request also carries the context.
 	*/
-	Routes(request *http.Request, endResult chan<- *ResultMsg) *RouteTasks
+	Filter(request *http.Request, endResult chan<- *ResultMsg) (*RouteTasks, error)
 }
 
 //PostFilter is applied before a response is sent back to the client. Many post filter can be defined, and they are applied in the order defined by Order(), however as soon as a non-nil []byte is returned, the router stops applying post filters.
 type PostFilter interface {
 	FilterBase
-	//Filter can return nil, or a []byte, in which case that's what will be sent back to the client and no more filters will be applied
+	/*
+		Filter can return nil, or a []byte, in which case that's what will be sent back to the client and no more filters will be applied. Notice that
+		request also carries the context.
+	*/
 	Filter(request *http.Request, response *http.Response) ([]byte, error)
 }
