@@ -241,6 +241,33 @@ func (r *Router) handlePluginLib(fileName string, pluginLib *pluginator.PluginCo
 			log.Println("file ", fileName, " contains a PostFilter that does not implement dynaroutes.PostFilter")
 		}
 	}
+	routeFilterLib, err := pluginLib.Lib.Lookup("RoutingFilter")
+	if err == nil {
+		routeFilterPtr, isInstanceOf := routeFilterLib.(*RoutingFilter)
+		if isInstanceOf {
+			routeFilter := *routeFilterPtr
+			found := false
+			where := 0
+			for i, rRouteFilter := range r.routingFilters {
+				if routeFilter.Name() == rRouteFilter.Name() {
+					found = true
+					where = i
+					break
+				}
+			}
+			if found {
+				r.routingFilters[where] = routeFilter
+				log.Println("Updated route filter ", routeFilter.Name())
+			} else {
+				r.routingFilters = append(r.routingFilters, routeFilter)
+				log.Println("Added route filter ", routeFilter.Name())
+			}
+			sort.Sort(routingFilterByOrder(r.routingFilters))
+			r.routingFilterCode[routeFilter.Name()] = pluginLib.Code
+		} else {
+			log.Println("file ", fileName, " contains a RouteFilter that does not implement dynaroutes.RouteFilter")
+		}
+	}
 }
 
 type preFilterByOrder []PreFilter
@@ -254,6 +281,12 @@ type postFilterByOrder []PostFilter
 func (a postFilterByOrder) Len() int           { return len(a) }
 func (a postFilterByOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a postFilterByOrder) Less(i, j int) bool { return a[i].Order() < a[j].Order() }
+
+type routingFilterByOrder []RoutingFilter
+
+func (a routingFilterByOrder) Len() int           { return len(a) }
+func (a routingFilterByOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a routingFilterByOrder) Less(i, j int) bool { return a[i].Order() < a[j].Order() }
 
 type mainHandler struct {
 	router *Router
@@ -270,64 +303,43 @@ func (m *mainHandler) handleFilterError(responseWriter http.ResponseWriter, requ
 
 func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 
-	var route *Route
 	var err error
-	for _, router := range m.router.preFilters {
-		route, err = router.Filter(request)
+	for _, pre := range m.router.preFilters {
+		err = pre.Filter(request)
 		if err != nil {
 			m.handleFilterError(responseWriter, request, err)
 			return
 		}
-		if route != nil {
+	}
+
+	var routeTasks *RouteTasks
+	resultChan := make(chan *ResultMsg, 1)
+
+	for _, rFilter := range m.router.routingFilters {
+		routeTasks = rFilter.Routes(request, resultChan)
+		if routeTasks != nil {
 			break
 		}
 	}
-	if route != nil {
-		portS := strconv.Itoa(route.Port)
-		proxyURL, err := url.Parse(route.Scheme + "://" + route.Host + ":" + portS + route.URI)
-		if err != nil {
-			responseWriter.Header().Set("Content/Type", "text/html")
-			responseWriter.WriteHeader(500)
-			_, err = responseWriter.Write([]byte(err.Error()))
-			if err != nil {
-				log.Println(err)
-			}
-			return
-		}
-		proxyReq := new(http.Request)
-		*proxyReq = *request
-		proxyReq.URL = proxyURL
-		proxyReq.RequestURI = ""
-		proxyReq.Method = route.Method
 
-		if request.ContentLength > 0 {
-			proxyReq.Body = request.Body
-		}
-		var withDeadline context.Context
-		var cancel context.CancelFunc
-		if route.Timeout != 0 {
-			withDeadline, cancel = context.WithDeadline(request.Context(), time.Now().Add(route.Timeout))
-		} else {
-			withDeadline, cancel = context.WithDeadline(request.Context(), time.Now().Add(m.router.requestTimeout))
-		}
-		defer cancel()
-		proxyReq = proxyReq.WithContext(withDeadline)
-		proxyReq.Header = m.cloneHeader(request.Header)
+	if routeTasks != nil {
 
-		proxyResp, err := m.router.client.Do(proxyReq)
-		if err != nil {
-			responseWriter.Header().Set("Content/Type", "text/html")
-			responseWriter.WriteHeader(500)
-			_, err = responseWriter.Write([]byte(err.Error()))
-			if err != nil {
-				log.Println(err)
+		var resultMsg *ResultMsg
+
+		select {
+		case route := <-routeTasks.Send:
+			go m.doProxyRequest(request, route, routeTasks.Receive)
+		case resultMsg = <-resultChan:
+			close(resultChan)
+			if resultMsg.Err != nil {
+				m.handleFilterError(responseWriter, request, err)
+				return
 			}
-			return
 		}
-		defer proxyResp.Body.Close()
+
 		var filteredBody []byte
 		for _, postFilter := range m.router.postFilters {
-			filteredBody, err = postFilter.Filter(request, proxyReq, proxyResp)
+			filteredBody, err = postFilter.Filter(request, resultMsg.Response)
 			if err != nil {
 				m.handleFilterError(responseWriter, request, err)
 				return
@@ -337,7 +349,7 @@ func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 			}
 		}
 
-		m.copyHeader(responseWriter.Header(), proxyResp.Header)
+		m.copyHeader(responseWriter.Header(), resultMsg.Response.Header)
 		if filteredBody != nil {
 			responseWriter.Header().Set("Content-Length", strconv.Itoa(len(filteredBody)))
 			_, err = io.Copy(responseWriter, bytes.NewReader(filteredBody))
@@ -346,8 +358,8 @@ func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 			}
 			return
 		}
-		responseWriter.WriteHeader(proxyResp.StatusCode)
-		_, err = io.Copy(responseWriter, proxyResp.Body)
+		responseWriter.WriteHeader(resultMsg.Response.StatusCode)
+		_, err = io.Copy(responseWriter, resultMsg.Response.Body)
 		if err != nil {
 			log.Println(err)
 		}
@@ -360,6 +372,56 @@ func (m *mainHandler) ServeHTTP(responseWriter http.ResponseWriter, request *htt
 		}
 		return
 	}
+}
+
+func (m *mainHandler) doProxyRequest(request *http.Request, route *Route, receive chan<- ResultMsg) {
+
+	portS := strconv.Itoa(route.Port)
+	proxyURL, err := url.Parse(route.Scheme + "://" + route.Host + ":" + portS + route.URI)
+	if err != nil {
+		rM := ResultMsg{
+			Response: nil,
+			Err:      err,
+		}
+		receive <- rM
+		return
+	}
+
+	proxyReq := new(http.Request)
+	*proxyReq = *request
+	proxyReq.URL = proxyURL
+	proxyReq.RequestURI = ""
+	proxyReq.Method = route.Method
+
+	if request.ContentLength > 0 {
+		proxyReq.Body = route.Body
+	}
+	var withDeadline context.Context
+	var cancel context.CancelFunc
+	if route.Timeout != 0 {
+		withDeadline, cancel = context.WithDeadline(request.Context(), time.Now().Add(route.Timeout))
+	} else {
+		withDeadline, cancel = context.WithDeadline(request.Context(), time.Now().Add(m.router.requestTimeout))
+	}
+
+	proxyReq = proxyReq.WithContext(withDeadline)
+	proxyReq.Header = m.cloneHeader(request.Header)
+
+	proxyResp, err := m.router.client.Do(proxyReq)
+	if err != nil {
+		rM := ResultMsg{
+			Response: nil,
+			Err:      err,
+		}
+		receive <- rM
+
+		proxyResp.Body.Close()
+		cancel()
+
+		return
+	}
+	proxyResp.Body.Close()
+	cancel()
 }
 
 func (m *mainHandler) copyHeader(dst, src http.Header) {
